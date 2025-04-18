@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+  # MongoDB service
+  mongo:
+    image: mongo:latest
+    container_name: vulnerability-scanner-mongo
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+
+  # Backend service
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: vulnerability-scanner-server
+    restart: always
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - ./nuclei:/usr/local/bin/nuclei  # Mount the nuclei binary
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGO_URI=mongodb://root:example@mongo:27017/vulnerability-scanner?authSource=admin
+      - JWT_SECRET=your_jwt_secret_key_here
+      - NUCLEI_PATH=/usr/local/bin/nuclei
+
+  # Frontend service
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    container_name: vulnerability-scanner-client
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://server:5000/api
+
+volumes:
+  mongo-data:
